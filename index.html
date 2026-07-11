@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MathMentor — solve it yourself, with a guide</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧮</text></svg>" />
+
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+
+  <!-- math.js for the scientific calculator -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.3/lib/browser/math.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">🧮</span>
+      <div>
+        <h1>MathMentor</h1>
+        <p class="tagline">Solve it yourself — with a guide, not an answer machine.</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="newProblemBtn" class="btn ghost" title="Start over">＋ New problem</button>
+      <button id="settingsBtn" class="btn ghost" title="API key & model">⚙ Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ============ LEFT: PROBLEM WORKSPACE ============ -->
+    <section class="workspace">
+
+      <!-- 1. INPUT -->
+      <div class="card" id="inputCard">
+        <h2><span class="step-num">1</span> Your problem</h2>
+
+        <div id="dropZone" class="drop-zone" tabindex="0">
+          <div id="dropHint" class="drop-hint">
+            <span class="drop-icon">📷</span>
+            <strong>Drop a photo here, click to browse, or paste (Ctrl+V)</strong>
+            <span class="muted">a picture of the exercise from your book, homework or screen</span>
+          </div>
+          <div id="previewWrap" class="preview-wrap hidden">
+            <img id="previewImg" alt="Problem photo preview" />
+            <button id="removeImgBtn" class="btn small danger" type="button">✕ Remove photo</button>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+
+        <label class="field-label" for="problemText">…and/or type the problem (optional if you added a photo)</label>
+        <textarea id="problemText" rows="3" placeholder="e.g.  Solve for x:  2x² − 5x + 3 = 0"></textarea>
+
+        <button id="analyzeBtn" class="btn primary big">🔍 Analyze my problem</button>
+        <p id="inputError" class="error-msg hidden"></p>
+      </div>
+
+      <!-- 2. UNDERSTANDING -->
+      <div class="card hidden" id="understandCard">
+        <h2><span class="step-num">2</span> What we're looking at</h2>
+        <div class="chips" id="topicChips"></div>
+        <div class="block">
+          <h3>The problem</h3>
+          <div id="problemRestated" class="math-text framed"></div>
+        </div>
+        <div class="block">
+          <h3>What is asked</h3>
+          <div id="whatAsked" class="math-text"></div>
+        </div>
+        <div class="block">
+          <h3>🚀 How to start</h3>
+          <div id="howToStart" class="math-text highlight"></div>
+        </div>
+        <div class="block">
+          <h3>Key concepts you'll need</h3>
+          <ul id="keyConcepts" class="concept-list"></ul>
+        </div>
+        <details class="block">
+          <summary>⚠️ Common mistakes on this kind of problem</summary>
+          <ul id="commonMistakes" class="mistake-list"></ul>
+        </details>
+      </div>
+
+      <!-- 3. HINTS -->
+      <div class="card hidden" id="hintsCard">
+        <h2><span class="step-num">3</span> Hints <span id="hintCounter" class="counter"></span></h2>
+        <p class="muted">Each hint reveals a little more. Try to work between hints — the final answer is never given.</p>
+        <div id="hintsList" class="hints-list"></div>
+        <button id="nextHintBtn" class="btn secondary">💡 Give me a hint</button>
+      </div>
+
+      <!-- 4. LEARN -->
+      <div class="card hidden" id="learnCard">
+        <h2><span class="step-num">4</span> Learn this topic</h2>
+        <p class="muted">Recommended YouTube searches for this exact topic:</p>
+        <ul id="youtubeList" class="yt-list"></ul>
+      </div>
+
+      <!-- 5. YOUR WORK -->
+      <div class="card hidden" id="workCard">
+        <h2><span class="step-num">5</span> Check your work</h2>
+
+        <div class="answer-row">
+          <input type="text" id="answerInput" placeholder="Type your final answer, e.g.  x = 1 or x = 3/2" />
+          <button id="checkBtn" class="btn primary">Check ✓</button>
+        </div>
+        <div id="checkFeedback" class="math-text feedback hidden"></div>
+
+        <h3 class="chat-title">Still stuck? Ask a guiding question</h3>
+        <div id="chatLog" class="chat-log" aria-live="polite"></div>
+        <div class="answer-row">
+          <input type="text" id="chatInput" placeholder='e.g. "Why do we factor first?" — I will guide, not solve' />
+          <button id="chatBtn" class="btn secondary">Ask</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ RIGHT: CALCULATOR ============ -->
+    <aside class="side">
+      <div class="card calc-card">
+        <h2>🖩 Scientific calculator</h2>
+        <div class="calc">
+          <input id="calcExpr" class="calc-display" type="text" autocomplete="off"
+                 spellcheck="false" placeholder="2*sin(30) + sqrt(16)" />
+          <div id="calcResult" class="calc-result">&nbsp;</div>
+          <div class="calc-grid" id="calcGrid">
+            <button data-act="inv" class="key fn" id="invKey">INV</button>
+            <button data-act="deg" class="key fn" id="degKey">DEG</button>
+            <button data-act="clear" class="key danger">C</button>
+            <button data-act="back" class="key">⌫</button>
+            <button data-ins="(" class="key">(</button>
+            <button data-ins=")" class="key">)</button>
+
+            <button data-ins="sin(" data-inv="asin(" class="key fn trig">sin</button>
+            <button data-ins="cos(" data-inv="acos(" class="key fn trig">cos</button>
+            <button data-ins="tan(" data-inv="atan(" class="key fn trig">tan</button>
+            <button data-ins="pi" class="key fn">π</button>
+            <button data-ins="e" class="key fn">e</button>
+            <button data-ins="/" class="key op">÷</button>
+
+            <button data-ins="log(" data-inv="exp(" class="key fn" data-lbl="ln" data-invlbl="eˣ">ln</button>
+            <button data-ins="log10(" data-inv="10^" class="key fn" data-lbl="log" data-invlbl="10ˣ">log</button>
+            <button data-ins="sqrt(" class="key fn">√</button>
+            <button data-ins="^2" class="key fn">x²</button>
+            <button data-ins="^" class="key op">xʸ</button>
+            <button data-ins="*" class="key op">×</button>
+
+            <button data-ins="7" class="key num">7</button>
+            <button data-ins="8" class="key num">8</button>
+            <button data-ins="9" class="key num">9</button>
+            <button data-ins="!" class="key fn">n!</button>
+            <button data-ins="%" class="key fn">%</button>
+            <button data-ins="-" class="key op">−</button>
+
+            <button data-ins="4" class="key num">4</button>
+            <button data-ins="5" class="key num">5</button>
+            <button data-ins="6" class="key num">6</button>
+            <button data-ins="Ans" class="key fn">Ans</button>
+            <button data-ins="1/" class="key fn">1/x</button>
+            <button data-ins="+" class="key op">+</button>
+
+            <button data-ins="1" class="key num">1</button>
+            <button data-ins="2" class="key num">2</button>
+            <button data-ins="3" class="key num">3</button>
+            <button data-ins="0" class="key num">0</button>
+            <button data-ins="." class="key num">.</button>
+            <button data-act="eq" class="key eq">=</button>
+          </div>
+          <details class="calc-history-wrap">
+            <summary>History</summary>
+            <ul id="calcHistory" class="calc-history"></ul>
+          </details>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <p>MathMentor never gives final answers — that part is your job. 💪
+       Your API key is stored only in <em>your</em> browser (localStorage), never uploaded anywhere except your AI provider.</p>
+  </footer>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h2>⚙ Settings</h2>
+      <p class="muted">The app talks directly from your browser to the AI provider. Your key is saved in this browser only.</p>
+
+      <label class="field-label" for="providerSelect">Provider</label>
+      <select id="providerSelect">
+        <option value="gemini">Google Gemini (recommended — free tier, photos supported)</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="groq">Groq</option>
+        <option value="custom">Custom (OpenAI-compatible)</option>
+      </select>
+
+      <label class="field-label" for="apiKeyInput">API key</label>
+      <div class="key-row">
+        <input type="password" id="apiKeyInput" placeholder="Paste your API key" autocomplete="off" />
+        <button id="toggleKeyBtn" class="btn small ghost" type="button">👁</button>
+      </div>
+      <p class="muted" id="keyHelp">Get a free Gemini key at <strong>aistudio.google.com/apikey</strong></p>
+
+      <label class="field-label" for="modelInput">Model</label>
+      <div class="key-row">
+        <input type="text" id="modelInput" list="modelOptions" />
+        <button id="listModelsBtn" class="btn small ghost" type="button"
+                title="Fetch the models your key can use">⟳ List</button>
+      </div>
+      <datalist id="modelOptions"></datalist>
+      <p class="muted">Model names change over time — click <strong>⟳ List</strong> to fetch the ones your key can use, then pick from the suggestions.</p>
+
+      <div id="baseUrlWrap" class="hidden">
+        <label class="field-label" for="baseUrlInput">Base URL (OpenAI-compatible)</label>
+        <input type="text" id="baseUrlInput" placeholder="https://api.example.com/v1" />
+      </div>
+
+      <p id="settingsMsg" class="settings-msg"></p>
+
+      <div class="modal-actions">
+        <button id="testKeyBtn" class="btn secondary">Test connection</button>
+        <button id="saveSettingsBtn" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Busy overlay -->
+  <div id="busyOverlay" class="busy-overlay hidden">
+    <div class="spinner"></div>
+    <p id="busyText">Reading your problem…</p>
+  </div>
+
+  <script src="calculator.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
