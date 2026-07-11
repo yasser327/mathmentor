@@ -79,6 +79,7 @@ ABSOLUTE, NON-NEGOTIABLE RULES:
 
   const ANALYZE_INSTRUCTIONS = `Analyze the math problem shown in the attached photo and/or typed text.
 Remember the ABSOLUTE RULES: no final answer anywhere, not even inside hints.
+JSON FORMAT RULES: inside JSON strings, every LaTeX backslash MUST be doubled (write \\\\frac, \\\\theta — never \\frac, \\theta). Always wrap mathematics in $...$ delimiters, never emit bare LaTeX outside $.
 
 Produce:
 - topic and subtopic (e.g. "Calculus" / "Integration by parts"),
@@ -167,6 +168,22 @@ Produce:
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // Local models often emit bare LaTeX with no $ delimiters — KaTeX would show
+  // it as raw text. If a line has LaTeX commands but no delimiters, add them:
+  // a line with no prose words is wrapped whole; mixed lines get their mathy
+  // runs wrapped individually.
+  function autoWrapMath(line) {
+    if (!line || /[$]|\\\(|\\\[/.test(line)) return line;  // already delimited
+    if (!/\\[a-zA-Z]{2,}/.test(line)) return line;         // no LaTeX commands
+    const words = line.trim().split(/\s+/);
+    const prose = words.filter((w) => /^[a-zA-Z]{3,}[.,:;!?]?$/.test(w) && !w.startsWith("\\"));
+    if (prose.length === 0) return "$" + line.trim() + "$";
+    return line.replace(
+      /[^\s]*\\[a-zA-Z]+[^\s]*(?:\s+[^\s]*[\\{}^_=+\-*/()0-9][^\s]*)*/g,
+      (m) => "$" + m + "$"
+    );
+  }
+
   // minimal markdown: **bold**, `code`, "- " lists, paragraphs — then KaTeX
   function renderRich(el, text) {
     const lines = escapeHtml(String(text ?? "")).split(/\r?\n/);
@@ -174,10 +191,10 @@ Produce:
     for (const line of lines) {
       if (/^\s*[-•]\s+/.test(line)) {
         if (!inList) { html += "<ul>"; inList = true; }
-        html += "<li>" + line.replace(/^\s*[-•]\s+/, "") + "</li>";
+        html += "<li>" + autoWrapMath(line.replace(/^\s*[-•]\s+/, "")) + "</li>";
       } else {
         if (inList) { html += "</ul>"; inList = false; }
-        if (line.trim()) html += "<p>" + line + "</p>";
+        if (line.trim()) html += "<p>" + autoWrapMath(line) + "</p>";
       }
     }
     if (inList) html += "</ul>";
@@ -368,11 +385,73 @@ Produce:
     return new Error(msg);
   }
 
+  // Local models (Ollama / LM Studio) often emit JSON with LaTeX backslashes
+  // (\sqrt, \frac, \( ), raw newlines inside strings, or trailing commas.
+  // Gemini's schema mode never needs this, but repair instead of failing.
+  function repairJson(t) {
+    let out = "", inStr = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (!inStr) {
+        if (ch === '"') inStr = true;
+        out += ch;
+        continue;
+      }
+      if (ch === "\\") {
+        const next = t[i + 1] || "";
+        if ('"\\/bfnrt'.includes(next)) { out += ch + next; i++; }
+        else if (next === "u" && /^[0-9a-fA-F]{4}$/.test(t.slice(i + 2, i + 6))) { out += t.slice(i, i + 6); i += 5; }
+        else out += "\\\\"; // invalid escape like \sqrt -> literal backslash
+        continue;
+      }
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+      if (ch === '"') inStr = false;
+      out += ch;
+    }
+    return out;
+  }
+
+  // Even VALID JSON can hide mangled LaTeX: \frac, \right, \theta, \nu, \beta
+  // decode to control chars (\f, \r, \t, \n, \b are legal escapes). Restore them —
+  // a real tab/newline is never followed by a lowercase LaTeX word, and genuine
+  // line breaks before capitalized sentences are left alone.
+  const CTRL_FIX = [
+    [/\f(?=[a-z])/g, "\\f"],
+    [/\u0008(?=[a-z])/g, "\\b"],
+    [/\r(?=[a-z])/g, "\\r"],
+    [/\t(?=[a-z])/g, "\\t"],
+    [/\n(?=u(?![a-z])|abla|eq(?![a-z])|otin(?![a-z])|ot(?![a-z])|mid(?![a-z])|atural|leq(?![a-z])|geq(?![a-z])|prec|succ|sim(?![a-z])|cong|subseteq|supseteq)/g, "\\n"],
+  ];
+  function fixControlLatex(v) {
+    if (typeof v === "string") {
+      let s = v;
+      for (const [re, rep] of CTRL_FIX) s = s.replace(re, rep);
+      return s;
+    }
+    if (Array.isArray(v)) return v.map(fixControlLatex);
+    if (v && typeof v === "object") {
+      const o = {};
+      for (const k of Object.keys(v)) o[k] = fixControlLatex(v[k]);
+      return o;
+    }
+    return v;
+  }
+
   function parseJsonLoose(text) {
     let t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
     const a = t.indexOf("{"), b = t.lastIndexOf("}");
     if (a === -1 || b === -1) throw new Error("Could not read the model's analysis. Try again.");
-    return JSON.parse(t.slice(a, b + 1));
+    t = t.slice(a, b + 1);
+    const P = (s) => fixControlLatex(JSON.parse(s));
+    try { return P(t); } catch { /* try repairs below */ }
+    const repaired = repairJson(t);
+    try { return P(repaired); } catch { /* last resort: trailing commas */ }
+    try { return P(repaired.replace(/,\s*([\]}])/g, "$1")); }
+    catch {
+      throw new Error("The model's reply wasn't valid JSON — local models fumble this sometimes. Press Analyze again.");
+    }
   }
 
   // ---------------------------------------------------------------- analyze flow
@@ -718,6 +797,9 @@ Produce:
       Object.assign(settings, backup);
     }
   });
+
+  // debug handle (console testing: MMDebug.parseJsonLoose('...'))
+  window.MMDebug = { parseJsonLoose, repairJson, autoWrapMath, renderRich };
 
   // first run: prompt for key
   if (!settings.apiKey) {
