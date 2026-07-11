@@ -89,7 +89,8 @@ Produce:
 - key_concepts: 2-5 short items (formulas/definitions needed, LaTeX allowed),
 - common_mistakes: 1-3 typical errors students make here,
 - hints: EXACTLY 4 escalating hints. Hint 1 = gentle nudge. Hint 2 = which technique and why. Hint 3 = set up the first equation/step. Hint 4 = a roadmap of ALL remaining steps described in words — but never the result of the final computation.
-- youtube: 2-3 YouTube search queries to learn this topic (channels like Khan Academy, 3Blue1Brown, The Organic Chemistry Tutor, or good channels in the problem's language). Each item: a short human title + the exact search query.`;
+- youtube: 2-3 YouTube search queries to learn this topic (channels like Khan Academy, 3Blue1Brown, The Organic Chemistry Tutor, or good channels in the problem's language). Each item: a short human title + the exact search query.
+- plot: if seeing a graph would help understand this problem (functions, equations in x, inequalities, areas, intersections...), set relevant=true and give 1-4 functions of the variable x in STRICT math.js syntax — NOT LaTeX: use * for every multiplication (2*x, not 2x), ^ for powers, and functions sin cos tan asin acos atan sqrt abs log (natural) log10 exp, constants pi and e. Examples: "x^2 - 5*x + 3", "sin(2*x)", "sqrt(4 - x^2)". Curves that are not functions of x must be split (circle: "sqrt(r^2 - x^2)" and "-sqrt(r^2 - x^2)" with r replaced by its number). Choose x_min/x_max (and y_min/y_max if useful) so the interesting behaviour is visible. Each function gets a short label like "f(x)". If a graph would not help (pure arithmetic, proofs, combinatorics...), set relevant=false with an empty functions list. The plot is allowed to show the shape of the problem — the student still computes exact values themselves.`;
 
   const ANALYSIS_SCHEMA = {
     type: "OBJECT",
@@ -111,10 +112,33 @@ Produce:
           required: ["title", "search_query"],
         },
       },
+      plot: {
+        type: "OBJECT",
+        properties: {
+          relevant: { type: "BOOLEAN" },
+          functions: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                expr: { type: "STRING", description: "math.js syntax, variable x, e.g. 2*x^2 - 3*sin(x)" },
+                label: { type: "STRING" },
+              },
+              required: ["expr", "label"],
+            },
+          },
+          x_min: { type: "NUMBER" },
+          x_max: { type: "NUMBER" },
+          y_min: { type: "NUMBER" },
+          y_max: { type: "NUMBER" },
+          note: { type: "STRING", description: "one short sentence: what to look at in the graph" },
+        },
+        required: ["relevant", "functions"],
+      },
     },
     required: [
       "topic", "subtopic", "difficulty", "problem_latex", "what_is_asked",
-      "how_to_start", "key_concepts", "common_mistakes", "hints", "youtube",
+      "how_to_start", "key_concepts", "common_mistakes", "hints", "youtube", "plot",
     ],
   };
 
@@ -135,7 +159,8 @@ Produce:
     modelInput = $("modelInput"), baseUrlWrap = $("baseUrlWrap"), baseUrlInput = $("baseUrlInput"),
     keyHelp = $("keyHelp"), settingsMsg = $("settingsMsg"), testKeyBtn = $("testKeyBtn"),
     saveSettingsBtn = $("saveSettingsBtn"), newProblemBtn = $("newProblemBtn"),
-    listModelsBtn = $("listModelsBtn"), modelOptions = $("modelOptions");
+    listModelsBtn = $("listModelsBtn"), modelOptions = $("modelOptions"),
+    graphCard = $("graphCard");
 
   // ---------------------------------------------------------------- rendering
   function escapeHtml(s) {
@@ -447,12 +472,15 @@ Produce:
       youtubeList.appendChild(li);
     });
 
+    // graph — always shown after analysis; pre-filled when the AI marked it relevant
+    if (window.MMGraph) MMGraph.setFromAnalysis(a.plot);
+
     // reset work card
     answerInput.value = "";
     checkFeedback.classList.add("hidden");
     chatLog.innerHTML = "";
 
-    [understandCard, hintsCard, learnCard, workCard].forEach((c) => c.classList.remove("hidden"));
+    [understandCard, graphCard, hintsCard, learnCard, workCard].forEach((c) => c.classList.remove("hidden"));
     understandCard.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -558,7 +586,8 @@ Produce:
     previewWrap.classList.add("hidden");
     dropHint.classList.remove("hidden");
     inputError.classList.add("hidden");
-    [understandCard, hintsCard, learnCard, workCard].forEach((c) => c.classList.add("hidden"));
+    if (window.MMGraph) MMGraph.clear();
+    [understandCard, graphCard, hintsCard, learnCard, workCard].forEach((c) => c.classList.add("hidden"));
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 

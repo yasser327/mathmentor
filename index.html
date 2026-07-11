@@ -90,24 +90,48 @@
         </details>
       </div>
 
-      <!-- 3. HINTS -->
+      <!-- 3. GRAPH -->
+      <div class="card hidden" id="graphCard">
+        <h2><span class="step-num">3</span> See it — graph</h2>
+        <p id="graphNote" class="muted"></p>
+        <div class="graph-toolbar">
+          <div class="graph-btns">
+            <button id="graphZoomIn" class="btn small ghost" title="Zoom in">＋</button>
+            <button id="graphZoomOut" class="btn small ghost" title="Zoom out">－</button>
+            <button id="graphReset" class="btn small ghost" title="Reset view">⟲</button>
+          </div>
+          <span id="graphCoord" class="graph-coord"></span>
+        </div>
+        <div class="graph-wrap">
+          <canvas id="graphCanvas"></canvas>
+        </div>
+        <div id="graphLegend" class="graph-legend"></div>
+        <div class="answer-row graph-add">
+          <input type="text" id="graphFnInput" placeholder="Plot another function of x, e.g.  2*x^2 - 3*sin(x)" />
+          <button id="graphAddBtn" class="btn secondary">Plot</button>
+        </div>
+        <p id="graphError" class="error-msg"></p>
+        <p class="muted">Drag to move, scroll to zoom, hover to read coordinates. The graph shows the <em>shape</em> — exact values are still your job. 😉</p>
+      </div>
+
+      <!-- 4. HINTS -->
       <div class="card hidden" id="hintsCard">
-        <h2><span class="step-num">3</span> Hints <span id="hintCounter" class="counter"></span></h2>
+        <h2><span class="step-num">4</span> Hints <span id="hintCounter" class="counter"></span></h2>
         <p class="muted">Each hint reveals a little more. Try to work between hints — the final answer is never given.</p>
         <div id="hintsList" class="hints-list"></div>
         <button id="nextHintBtn" class="btn secondary">💡 Give me a hint</button>
       </div>
 
-      <!-- 4. LEARN -->
+      <!-- 5. LEARN -->
       <div class="card hidden" id="learnCard">
-        <h2><span class="step-num">4</span> Learn this topic</h2>
+        <h2><span class="step-num">5</span> Learn this topic</h2>
         <p class="muted">Recommended YouTube searches for this exact topic:</p>
         <ul id="youtubeList" class="yt-list"></ul>
       </div>
 
-      <!-- 5. YOUR WORK -->
+      <!-- 6. YOUR WORK -->
       <div class="card hidden" id="workCard">
-        <h2><span class="step-num">5</span> Check your work</h2>
+        <h2><span class="step-num">6</span> Check your work</h2>
 
         <div class="answer-row">
           <input type="text" id="answerInput" placeholder="Type your final answer, e.g.  x = 1 or x = 3/2" />
@@ -241,6 +265,7 @@
   </div>
 
   <script src="calculator.js"></script>
+  <script src="graph.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

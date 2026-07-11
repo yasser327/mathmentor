@@ -8,6 +8,7 @@ Upload a photo of a problem (or type it) and MathMentor will:
 - 🚀 tell you **how to start** (guidance, not steps),
 - 💡 give up to **4 escalating hints** — never the final answer,
 - ▶ suggest **YouTube searches** to learn the topic,
+- 📈 **graph the problem** when it helps (interactive plot: drag to pan, scroll to zoom, hover to read coordinates, add your own functions),
 - ✓ **check your final answer** (and if it's wrong, nudge you — without revealing the correct one),
 - 🖩 give you a built-in **scientific calculator** (DEG/RAD, trig, logs, factorial, history) so *you* do the computing.
 
@@ -57,6 +58,7 @@ index.html      structure and UI
 style.css       graph-paper theme
 app.js          settings, photo upload, AI calls, hints, chat, answer check
 calculator.js   scientific calculator (math.js)
+graph.js        interactive function grapher (canvas + math.js)
 ```
 
 ## Ideas for later
